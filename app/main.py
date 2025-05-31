@@ -8,13 +8,14 @@ import os
 
 from app.docs.swagger import custom_openapi
 from app.routes import profile, company, chat, query, candidates, recruiter
+from .database import db
 
 # Load environment variables
 load_dotenv()
 
 app = FastAPI(
     title="Talent GPT API",
-    description="API for Talent GPT recruitment platform",
+    description="API for AI-powered recruitment platform",
     version="1.0.0",
     docs_url=None,  # Disable default docs
     redoc_url=None  # Disable default redoc
@@ -31,13 +32,15 @@ app.add_middleware(
 
 # MongoDB connection
 @app.on_event("startup")
-async def startup_db_client():
-    app.mongodb_client = AsyncIOMotorClient(os.getenv("MONGODB_URL", "mongodb://localhost:27017"))
-    app.mongodb = app.mongodb_client.talent_gpt_db
+async def startup_event():
+    """Initialize database connection on startup."""
+    mongodb_url = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
+    db.init_db(mongodb_url)
 
 @app.on_event("shutdown")
-async def shutdown_db_client():
-    app.mongodb_client.close()
+async def shutdown_event():
+    """Close database connection on shutdown."""
+    db.close_db()
 
 # Custom Swagger UI endpoint
 @app.get("/docs", include_in_schema=False)
@@ -61,6 +64,11 @@ app.include_router(chat.router, prefix="/api", tags=["Chat"])
 app.include_router(query.router, prefix="/api", tags=["Query"])
 app.include_router(candidates.router, prefix="/api", tags=["Candidates"])
 app.include_router(recruiter.router, prefix="/api", tags=["Recruiter"])
+
+@app.get("/")
+async def root():
+    """Root endpoint to verify API is running."""
+    return {"message": "Welcome to Talent GPT API"}
 
 if __name__ == "__main__":
     import uvicorn
